@@ -1,0 +1,3 @@
+simpy
+websocket-client
+load_dotenv

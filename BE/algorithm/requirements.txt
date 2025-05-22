@@ -1,0 +1,6 @@
+confluent-kafka
+redis
+scipy
+numpy
+pymysql
+python-dotenv
