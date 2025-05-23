@@ -132,12 +132,11 @@ def fetch_robot_list(needChargeAmrs,triggered_amr,inputMissionType) -> list[tupl
             print(f"{amr_id}가 {node_id}가 다음 목적지 이기 떄문에 계산에 추가하지 않습니다.")
             print(f"서브미션 노드는 {submission_nodes} 이고 서브미션 ID는 {int(h.get('submissionId', 0))}입니다.")
             if 1<=node_id<=10:
-                ban_work_list.append(int(h.get("finalGoal")))
+                ban_work_list.append(int(h.get("finalGoal", 0)))
             else:
                 ban_work_list.append(node_id)
         if loading==1:
-            ban_work_list.append(int(h.get("finalGoal")))
-
+            ban_work_list.append(int(h.get("finalGoal", 0)))
     ban_work_list.extend(brokenNode)
 
     return robot_list,ban_work_list
