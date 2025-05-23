@@ -614,9 +614,9 @@ class AMR:
                             latx, laty = latx / norm, laty / norm
 
                             # 10스텝 동안 부드럽게 회피
-                            avoidance_steps = 60
-                            avoidance_dx = latx * per_step_dist
-                            avoidance_dy = laty * per_step_dist
+                            avoidance_steps = 30
+                            avoidance_dx = latx * per_step_dist*2
+                            avoidance_dy = laty * per_step_dist*2
                             avoidance_steps_orig = avoidance_steps  # 복귀용 저장
                             saved_offset_x = avoidance_dx * avoidance_steps_orig
                             saved_offset_y = avoidance_dy * avoidance_steps_orig
@@ -660,6 +660,8 @@ class AMR:
             node_dist = self.get_distance(self.pos_x, self.pos_y, node["x"], node["y"])
             if node_dist <= STOP_DIST and not self.traffic_event.is_set():
                 while not self.traffic_event.is_set():
+                    yield self.env.timeout(REALTIME_INTERVAL)
+                for stop_after_permit in range(50):
                     yield self.env.timeout(REALTIME_INTERVAL)
 
         # 4. 위치 정렬
@@ -834,7 +836,7 @@ def broadcast_status():
 
 # ─── Person 클래스 수정 ────────────────────────────────
 class Person:
-    def __init__(self, env, person_id, start_x, start_y, pause_points=None, pause_time=3.0, move_speed=0.35):
+    def __init__(self, env, person_id, start_x, start_y, pause_points=None, pause_time=3.0, move_speed=0.7):
         self.env = env
         self.id = person_id
         # 평소에는 숨김 위치

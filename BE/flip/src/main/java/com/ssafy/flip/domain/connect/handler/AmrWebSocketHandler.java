@@ -29,8 +29,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.*;
 
 @Component
 @RequiredArgsConstructor
@@ -69,7 +68,9 @@ public class AmrWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Integer> missionToLine = new HashMap<>();
     private final LineService lineService;
     private final StringRedisTemplate stringRedisTemplate;
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
+    private final Map<String, Integer> amrCurrentNodeMap = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void initObjectMapper() {
@@ -408,40 +409,64 @@ public class AmrWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void sendTrafficPermit(String amrId, String missionId, int submissionId, int nodeId, WebSocketSession session) {
+    private void sendTrafficPermitOnce(String amrId, String missionId, int submissionId, int nodeId, WebSocketSession session) {
         try {
-
-            //log.info("▶ sendTrafficPermit 호출: amrId={}, session={}, open={}", amrId, session, session != null && session.isOpen());
-
             Map<String, Object> wrapper = new HashMap<>();
 
-            // 2) header 생성
             Map<String, Object> header = new HashMap<>();
             header.put("msgName", "TRAFFIC_PERMIT");
             header.put("amrId", amrId);
-            header.put("time", LocalDateTime.now()
-                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS")));
+            header.put("time", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS")));
             wrapper.put("header", header);
 
-            // 3) body 생성 (기존 traffic 맵 내용)
             Map<String, Object> body = new HashMap<>();
             body.put("missionId", missionId);
             body.put("submissionId", submissionId);
             body.put("nodeId", nodeId);
             wrapper.put("body", body);
 
-            // 4) JSON 변환 & 전송
             String message = objectMapper.writeValueAsString(wrapper);
-
 
             if (session != null && session.isOpen()) {
                 session.sendMessage(new TextMessage(message));
-                //log.info("✅ Traffic Permit 전송 성공: {}", message);
+                log.info("✅ Traffic Permit 전송 성공: {}", message);
             } else {
-                log.error("❌ Traffic Permit 전송 실패: {} 세션이 없음", amrId);
+                log.error("❌ Traffic Permit 전송 실패: 세션 없음 - {}", amrId);
             }
         } catch (Exception e) {
-            log.error("❌ Traffic Permit 전송 실패", e);
+            log.error("❌ Traffic Permit 전송 중 예외 발생", e);
+        }
+    }
+
+    // ✅ 10초 후 동일 위치 시 재전송 포함
+    private void sendTrafficPermit(String amrId, String missionId, int submissionId, int nodeId, WebSocketSession session) {
+        sendTrafficPermitOnce(amrId, missionId, submissionId, nodeId, session);
+
+        scheduler.schedule(() -> {
+            updateAmrCurrentNodeFromRedis(amrId); // Redis에서 위치 최신화
+            Integer currentNode = amrCurrentNodeMap.get(amrId);
+            if (currentNode != null && currentNode == nodeId) {
+                log.warn("🔁 AMR {} 여전히 node {} 에 위치 중. Traffic Permit 재전송", amrId, nodeId);
+                sendTrafficPermitOnce(amrId, missionId, submissionId, nodeId, session);
+            }
+        }, 10, TimeUnit.SECONDS);
+
+    }
+
+    public void updateAmrCurrentNodeFromRedis(String amrId) {
+        try {
+            String key = "AMR_STATUS:" + amrId;
+            String currentNodeStr = (String) stringRedisTemplate.opsForHash().get(key, "currentNode");
+
+            if (currentNodeStr != null) {
+                int currentNode = Integer.parseInt(currentNodeStr);
+                amrCurrentNodeMap.put(amrId, currentNode);
+                log.debug("📍 AMR {} 현재 노드 Redis로부터 갱신됨: {}", amrId, currentNode);
+            } else {
+                log.warn("⚠️ Redis에서 AMR {} 의 currentNode 값을 찾지 못했습니다", amrId);
+            }
+        } catch (Exception e) {
+            log.error("❌ Redis에서 AMR 현재 노드 조회 중 예외 발생 (amrId={})", amrId, e);
         }
     }
 
