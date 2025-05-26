@@ -4,9 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ssafy.flip.domain.connect.dto.request.RouteTempDTO;
+import com.ssafy.flip.domain.connect.dto.response.MissionAssignDTO;
 import com.ssafy.flip.domain.connect.service.AlgorithmResultConsumer;
 import com.ssafy.flip.domain.connect.service.AlgorithmTriggerProducer;
 import com.ssafy.flip.domain.connect.service.WebSocketService;
+import com.ssafy.flip.domain.connect.service.WebSocketServiceImpl;
 import com.ssafy.flip.domain.line.service.LineService;
 import com.ssafy.flip.domain.log.service.mission.MissionLogService;
 import com.ssafy.flip.domain.mission.dto.MissionResponse;
@@ -26,6 +28,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -55,6 +58,11 @@ public class AmrWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Integer> previousNodeMap = new ConcurrentHashMap<>();
 
     private final Map<String, Long> missionToLineId = new HashMap<>();
+    // AMR의 마지막 좌표 저장 (x, y)
+    private final Map<String, double[]> lastCoordinates = new ConcurrentHashMap<>();
+    // 좌표가 변경되지 않은 시점을 기록
+    private final Map<String, LocalDateTime> coordinateUnchangedSince = new ConcurrentHashMap<>();
+
 
     private static final DateTimeFormatter fmt =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
@@ -71,6 +79,21 @@ public class AmrWebSocketHandler extends TextWebSocketHandler {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     private final Map<String, Integer> amrCurrentNodeMap = new ConcurrentHashMap<>();
+    private final WebSocketServiceImpl webSocketServiceImpl;
+
+    // 누락된 edge_id 목록만 관리
+    private static final List<Integer> VALID_EDGE_IDS = Arrays.asList(
+            416, 417, 172, 155, 173, 190, 460, 461, 275
+    );
+
+    private static final Random random = new Random();
+
+    // 유효한 edge_id 중 하나를 랜덤하게 반환
+
+    private static String getRandomValidEdgeId() {
+        int id = VALID_EDGE_IDS.get(random.nextInt(VALID_EDGE_IDS.size()));
+        return String.valueOf(id);
+    }
 
     @PostConstruct
     public void initObjectMapper() {
@@ -181,8 +204,74 @@ public class AmrWebSocketHandler extends TextWebSocketHandler {
             int    state          = amrDto.body().state(); // 1=IDLE,2=BUSY
 
             // — 서브미션 변화 기록 —
+            double currX = amrDto.body().worldX();
+            double currY = amrDto.body().worldY();
+            String missionType = amrDto.body().missionType();
             LocalDateTime now = LocalDateTime.now();
             Integer lastSub = lastSubmissionMap.get(amrId);
+
+            // 1) CHARGING 미션이 아니면 좌표 고정 여부 체크
+            if (!"CHARGING".equalsIgnoreCase(missionType)) {
+                double[] last = lastCoordinates.get(amrId);
+
+                if (last != null && last[0] == currX && last[1] == currY) {
+                    // 좌표가 변하지 않은 경우
+                    LocalDateTime since = coordinateUnchangedSince.get(amrId);
+                    if (since == null) {
+                        // 처음 정지 감지 시각 기록
+                        coordinateUnchangedSince.put(amrId, now);
+                    } else if (Duration.between(since, now).getSeconds() >= 10) {
+                        // 10초 이상 좌표가 같으면 재할당 트리거
+                        String reassignPayload = objectMapper.writeValueAsString(Map.of(
+                                "amrId", amrId,
+                                "reason", "stuck",
+                                "x", currX,
+                                "y", currY
+                        ));
+                        String amrRedisKey = "AMR_STATUS:" + amrId;
+                        String cancelCurrentNode = (String) stringRedisTemplate.opsForHash().get(amrRedisKey, "currentNode");
+                        String cancelmissionId = (String) stringRedisTemplate.opsForHash().get(amrRedisKey, "missionId");
+                        String cancelsubmissionId = (String) stringRedisTemplate.opsForHash().get(amrRedisKey, "submissionId");
+
+                        //미션취소
+                        webSocketService.sendCancelMission(amrId);
+                        List<MissionAssignDTO.SubmissionDTO> cancelSubmissions = new ArrayList<>();
+                        int submissionId =  Integer.parseInt(cancelsubmissionId) + 1;
+                        cancelSubmissions.add(new MissionAssignDTO.SubmissionDTO(
+                                //String.valueOf(submissionId),
+                                String.valueOf(submissionId),
+                                cancelCurrentNode,
+                                getRandomValidEdgeId()));
+                        MissionAssignDTO missionAssignDTO = MissionAssignDTO.of(
+                                amrId,
+                                cancelmissionId,
+                                "MOVING",
+                                cancelSubmissions
+                        );
+
+                        String payload = objectMapper.writeValueAsString(missionAssignDTO);
+                        WebSocketSession cancelSession = amrSessions.get(amrId);
+                        session.sendMessage(new TextMessage(payload));
+                        log.info("📤 미션 전송 완료: AMR = {}, Payload = {}", amrId, payload);
+
+                        // 재할당 한 번만 실행하도록 초기화
+                        coordinateUnchangedSince.remove(amrId);
+                        algorithmResultConsumer.getDelayedMissionMap().remove(amrId);
+                        return;
+                    }
+                } else {
+                    // 좌표가 변경된 경우: 마지막 좌표와 타이머 초기화
+                    lastCoordinates.put(amrId, new double[]{currX, currY});
+                    coordinateUnchangedSince.remove(amrId);
+                }
+            } else {
+                // CHARGING 중이면 관련 정보 초기화
+                lastCoordinates.remove(amrId);
+                coordinateUnchangedSince.remove(amrId);
+            }
+
+
+
             if (lastSub != null && !lastSub.equals(currentSub)) {
                 routeTempMap
                         .computeIfAbsent(amrId, k -> new ArrayList<>())
@@ -248,7 +337,7 @@ public class AmrWebSocketHandler extends TextWebSocketHandler {
             }
             // — IDLE 전환 시 “미션 완료” 처리 —
             List<RouteTempDTO> temps = routeTempMap.get(amrId);
-            if (state == 1 && temps != null && !temps.isEmpty()) {
+            if (state == 1 && (temps != null && !temps.isEmpty() || "CHARGING".equalsIgnoreCase(missionType))) {
                 log.info("🏁 AMR 미션 완료 감지: {} → {} {}", amrId, missionId, temps);
 
                 // 1) DB에 미션 로그 저장
@@ -296,7 +385,7 @@ public class AmrWebSocketHandler extends TextWebSocketHandler {
                             boolean shouldCancel = true;  // 기본은 취소
 
                             // ✅ 예외 1: missionType == "CHARGING"
-                            String missionType = (map.getOrDefault("missionType", "")).toString();
+                            missionType = (map.getOrDefault("missionType", "")).toString();
                             if ("CHARGING".equalsIgnoreCase(missionType)) {
                                 shouldCancel = false;
                             }

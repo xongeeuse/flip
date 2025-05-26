@@ -238,7 +238,7 @@ def listen_loop():
         msg = consumer.poll(1.0)
         if msg is None or msg.error():
             continue
-
+        
         raw_value = msg.value().decode("utf-8").strip()
         print(f"📩 수신 메시지: {raw_value}")
         
