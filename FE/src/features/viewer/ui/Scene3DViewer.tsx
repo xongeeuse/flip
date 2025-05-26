@@ -7,15 +7,17 @@ import { Map3D, MapLoading } from '@/entities/map';
 import { Model3DRenderer } from '@/entities/amrModel';
 import { useCameraFollow } from '../lib';
 import * as THREE from 'three';
-import { PersonModel } from '@/entities/personModel';
+import { PersonModel, RedFlag } from '@/entities/personModel';
 import { usePersonModelStore } from '@/shared/store/person-model-store';
 import SelectedAMRMarkers from './SelectedAMRMarkers';
+import { useFlagStore } from '@/shared/store/useFlagStore';
 
 const Warehouse = () => {
   const { isRepairing } = usePersonModelStore();
   const { controlsRef } = useCameraFollow();
   const lastValidTarget = useRef<THREE.Vector3>(new THREE.Vector3(40, 0, 40));
   const isUpdating = useRef(false);
+  const { isFlag } = useFlagStore();
 
   useEffect(() => {
     if (!controlsRef.current) return;
@@ -78,6 +80,8 @@ const Warehouse = () => {
 
       {/* 정비 상태일 때만 PersonModel 렌더링 */}
       {isRepairing && <PersonModel />}
+
+      {isFlag && <RedFlag />}
 
       <MapControls
         ref={controlsRef}

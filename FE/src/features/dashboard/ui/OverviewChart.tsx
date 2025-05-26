@@ -19,7 +19,7 @@ export default function OverviewChart() {
   if (!chartData) return <div className='text-white'>차트 데이터 없음</div>;
 
   return (
-    <div className='flex flex-col h-[460px] p-6 bg-[#020817]/50 backdrop-blur-md rounded-xl border border-blue-900/20'>
+    <div className='flex flex-col h-[460px] p-6 bg-white/10 backdrop-blur-md rounded-xl border border-blue-900/20'>
       <div className='flex items-center gap-4 mb-6'>
         <h2 className='text-lg font-semibold text-white'>생산 현황</h2>
       </div>
