@@ -28,7 +28,7 @@ export function FacilityCard({ data }: FacilityCardProps) {
   };
 
   useEffect(() => {
-    if (prevStatusRef.current && status) {
+    if (status) {
       setIsFlag(false);
     }
 
