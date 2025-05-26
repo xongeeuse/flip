@@ -196,7 +196,7 @@ public class StatusServiceImpl implements StatusService{
             data.add(new ProductionResponseDTO.ProductionDataDTO(
                     hour,                            // timestamp (시간)
                     (int) productionCount*10,           // production (해당 시간대의 MissionLog 개수)
-                    1500                               // target 고정값
+                    4000                               // target 고정값
             ));
         }
 
