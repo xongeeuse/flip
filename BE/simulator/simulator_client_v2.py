@@ -485,22 +485,35 @@ class AMR:
             # ── 사람과 충돌 우회 대기 ─────────────────────────
             ps = SHARED_STATUS.get(person.id)
             if ps:
+                # 1) AMR→사람 벡터
                 px = ps['x'] - self.pos_x
                 py = ps['y'] - self.pos_y
                 dist_p = math.hypot(px, py)
 
-                # 전방 60°(±30°) 영역만 탐지
-                ANG_THRESH = 30  # 반각(°)
-                # 이동 벡터와 사람 벡터의 내적
+                # 2) 부채꼴(전방 ±30°) 판정 (기존대로)
+                ANG_THRESH = 30
                 dot = dx * px + dy * py
-                # 벡터 크기 곱
                 denom = math.hypot(dx, dy) * dist_p
-                # 코사인 임계값
                 cos_thresh = math.cos(math.radians(ANG_THRESH))
+                cone_hit = (dist_p <= 2.0 and denom > 0 and dot / denom >= cos_thresh)
 
-                # 거리 2m 이내 & 두 벡터 각도 ≤ ±30°
-                if dist_p <= 2.0 and denom > 0 and dot / denom >= cos_thresh:
-                    # 사람이 완전히 벗어날 때까지 대기
+                # 3) 직사각형(전방 3m×폭 1m) 판정 (시작점 전방 0.5m 오프셋)
+                FRONT_OFFSET = 0.5  # AMR 반길이만큼 앞당김
+                RECT_LENGTH = 2.0
+                RECT_WIDTH = 1.0
+                mag = math.hypot(dx, dy)
+                if mag > 0:
+                    fx, fy = dx / mag, dy / mag  # 전진 단위벡터
+                    lx, ly = -fy, fx  # 좌우 단위벡터
+                    forward_dist = px * fx + py * fy
+                    lateral_dist = px * lx + py * ly
+                    rect_hit = (FRONT_OFFSET <= forward_dist <= FRONT_OFFSET + RECT_LENGTH
+                                and abs(lateral_dist) <= RECT_WIDTH / 2)
+                else:
+                    rect_hit = False
+
+                # 4) 둘 중 하나라도 True 이면 멈추고 대기
+                if cone_hit or rect_hit:
                     while True:
                         yield self.env.timeout(REALTIME_INTERVAL)
                         s2 = SHARED_STATUS.get(person.id)
@@ -508,7 +521,16 @@ class AMR:
                             break
                         px2 = s2['x'] - self.pos_x
                         py2 = s2['y'] - self.pos_y
-                        if math.hypot(px2, py2) > 2.0:
+                        # 부채꼴·직사각형 둘 다 벗어났으면 재개
+                        dist2 = math.hypot(px2, py2)
+                        dot2 = dx * px2 + dy * py2
+                        cone_out = not (
+                                    dist2 <= 2.0 and denom > 0 and dot2 / (math.hypot(dx, dy) * dist2) >= cos_thresh)
+                        forward2 = px2 * fx + py2 * fy
+                        lateral2 = px2 * lx + py2 * ly
+                        rect_out = not (FRONT_OFFSET <= forward2 <= FRONT_OFFSET + RECT_LENGTH
+                                        and abs(lateral2) <= RECT_WIDTH / 2)
+                        if cone_out and rect_out:
                             yield self.env.timeout(0.5)
                             break
                     continue
@@ -1047,7 +1069,7 @@ def broadcast_person_status():
 
 # ---------- 메인 ----------
 if __name__ == '__main__':
-    env = simpy.rt.RealtimeEnvironment(factor=0.35, strict=False)
+    env = simpy.rt.RealtimeEnvironment(factor=1.0, strict=False)
     for ws in ws_clients:
         threading.Thread(target=ws.run_forever, daemon=True).start()
 
