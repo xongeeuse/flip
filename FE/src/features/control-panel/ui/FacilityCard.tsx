@@ -31,8 +31,8 @@ export function FacilityCard({ data }: FacilityCardProps) {
         duration: 10000,
         action: {
           label: (
-            <div className="flex items-center gap-1">
-              <Wrench className="w-4 h-4" />
+            <div className='flex items-center gap-1'>
+              <Wrench className='w-4 h-4' />
               <span>수리</span>
             </div>
           ),
@@ -59,7 +59,6 @@ export function FacilityCard({ data }: FacilityCardProps) {
     prevStatusRef.current = status;
   }, [status, lineId]);
 
-
   return (
     <Card className='w-full rounded-2xl bg-[#393E4B] p-6 pr-12 mb-6 flex flex-row items-center shadow-lg relative'>
       {/* 오른쪽 상단: 상태 아이콘 */}
@@ -73,7 +72,7 @@ export function FacilityCard({ data }: FacilityCardProps) {
               <p>{getStatusText(status)}</p>
               {!status && (
                 <button
-                  className='bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-1 text-sm'
+                  className='flex items-center gap-1 px-3 py-1 text-sm text-white bg-blue-500 rounded hover:bg-blue-600'
                   onClick={handleRepair}
                 >
                   <Wrench className='w-4 h-4' />

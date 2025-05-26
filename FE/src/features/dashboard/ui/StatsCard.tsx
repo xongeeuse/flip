@@ -30,8 +30,8 @@ const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
     }
 
     return (
-      <div className="bg-[#020817] p-2 rounded-lg border border-blue-900/20">
-        <p className="text-white text-sm">{`${indexName}: ${Math.floor(percentage)}%`}</p>
+      <div className='bg-[#020817] p-2 rounded-lg border border-blue-900/20'>
+        <p className='text-sm text-white'>{`${indexName}: ${Math.floor(percentage)}%`}</p>
       </div>
     );
   }
@@ -39,17 +39,24 @@ const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
 };
 
 export default function StatsCard({ data }: { data: DashboardData }) {
-  const {title, value, subtext, data: {status : statusData}} = data;
+  const {
+    title,
+    value,
+    subtext,
+    data: { status: statusData },
+  } = data;
 
   return (
-    <div className='p-6 bg-[#020817]/50 backdrop-blur-md rounded-xl border border-blue-900/20'>
-      <h3 className='text-lg font-semibold text-white mb-4'>{title}</h3>
+    <div className='p-6 border bg-white/10 backdrop-blur-md rounded-xl border-blue-900/20'>
+      <h3 className='mb-4 text-lg font-semibold text-white'>{title}</h3>
       <div className='flex items-center justify-between'>
         <div className='flex-1'>
           <p className='text-4xl font-bold text-white'>{value}</p>
           <div className='mt-1'>
             {subtext.map((text, i) => (
-              <p key={i} className='text-sm text-gray-400'>{text}</p>
+              <p key={i} className='text-sm text-gray-400'>
+                {text}
+              </p>
             ))}
           </div>
         </div>
@@ -68,11 +75,12 @@ export default function StatsCard({ data }: { data: DashboardData }) {
                 nameKey='label'
                 startAngle={180}
                 endAngle={0}
-                stroke="none"
+                stroke='none'
               >
-                {statusData && statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
+                {statusData &&
+                  statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
             </PieChart>
@@ -82,8 +90,8 @@ export default function StatsCard({ data }: { data: DashboardData }) {
       {statusData && (
         <div className='grid grid-cols-2 gap-2 mt-4'>
           {statusData.map((stat, index) => {
-            const displayValue = stat.isTime 
-              ? formatTime(stat.timeValue || 0)  // 실제 시간 값으로 변환
+            const displayValue = stat.isTime
+              ? formatTime(stat.timeValue || 0) // 실제 시간 값으로 변환
               : stat.value;
 
             return (
@@ -92,7 +100,9 @@ export default function StatsCard({ data }: { data: DashboardData }) {
                   className='w-2 h-2 mr-2 rounded-full'
                   style={{ backgroundColor: COLORS[index % COLORS.length] }}
                 />
-                <span>{stat.label}: {displayValue}</span>
+                <span>
+                  {stat.label}: {displayValue}
+                </span>
               </div>
             );
           })}

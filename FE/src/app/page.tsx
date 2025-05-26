@@ -45,7 +45,7 @@ export default function Home() {
     return <div className='flex items-center justify-center text-white h-dvh'>데이터 없음</div>;
 
   return (
-    <div className='h-dvh overflow-y-auto p-6 bg-gradient-to-br from-[#0B1120] via-[#1D4ED8] to-[#0B1120]'>
+    <div className='h-dvh overflow-y-auto p-6 bg-[#0B1120]]'>
       <div className='flex items-center justify-between mb-8'>
         <h1 className='text-2xl font-bold text-white'>Dashboard</h1>
         <div className='text-sm text-gray-400'>
@@ -64,17 +64,17 @@ export default function Home() {
           <OverviewChart />
         </div>
         <div className='h-full'>
-          <div className='h-full p-6 bg-[#020817]/50 backdrop-blur-md rounded-xl border border-blue-900/20'>
+          <div className='h-full p-6 border bg-white/10 backdrop-blur-md rounded-xl border-blue-900/20'>
             <h2 className='mb-3 text-lg font-semibold text-white'>공장 지도</h2>
             <div className='bg-[#1F2937] h-[90%] rounded-lg flex items-center justify-center relative'>
               <ThumbnailViewer />
-              <div className="absolute bottom-4">
+              <div className='absolute bottom-4'>
                 <ThumbnailAMRLegend />
               </div>
-              <Link 
-                href="/control?view=2d" 
-                className="absolute right-2 top-2 p-2 bg-black/30 hover:bg-black/60 text-white rounded-lg hover:scale-105"
-                title="상세 보기"
+              <Link
+                href='/control?view=2d'
+                className='absolute p-2 text-white rounded-lg right-2 top-2 bg-black/30 hover:bg-black/60 hover:scale-105'
+                title='상세 보기'
               >
                 <Maximize2 size={15} />
               </Link>

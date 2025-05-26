@@ -20,20 +20,33 @@ export const RoutePath = () => {
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const { getSelectedModel } = useModelStore();
 
+  // toast 중복 방지용 ref
+  const toastVisibleRef = useRef(false);
+
+  // 1초 이내 중복 toast 방지 함수
+  const showSingleToast = (message: string) => {
+    if (toastVisibleRef.current) return;
+    toastVisibleRef.current = true;
+    toast(message, {
+      duration: 2000,
+      onAutoClose: () => {
+        toastVisibleRef.current = false;
+      },
+    });
+  };
+
   // 출발지/도착지 변경 감지 및 toast
   const prevRef = useRef({ selectedAmrId, startX, startY, targetX, targetY });
   useEffect(() => {
     if (
+      selectedAmrId &&
       prevRef.current.selectedAmrId === selectedAmrId &&
-      (prevRef.current.startX !== startX ||
-        prevRef.current.startY !== startY ||
-        prevRef.current.targetX !== targetX ||
-        prevRef.current.targetY !== targetY)
+      (prevRef.current.targetX !== targetX || prevRef.current.targetY !== targetY)
     ) {
-      toast('경로가 변경되었습니다.');
+      showSingleToast('경로가 변경되었습니다.');
     }
     prevRef.current = { selectedAmrId, startX, startY, targetX, targetY };
-  }, [selectedAmrId, startX, startY, targetX, targetY]);
+  }, [selectedAmrId, targetX]);
 
   useEffect(() => {
     // 이전 구독 해제
