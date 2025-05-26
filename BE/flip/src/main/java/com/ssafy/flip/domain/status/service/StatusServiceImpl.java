@@ -56,9 +56,16 @@ public class StatusServiceImpl implements StatusService{
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+        String finalGoal = (String) stringRedisTemplate.opsForHash().get(key, "finalGoal");
+        if (finalGoal != null) {
+            map.put("finalGoal", finalGoal);
+        }
+        else{
+            map.put("finalGoal", "80");
+        }
 
         stringRedisTemplate.opsForHash().putAll(key, map);
-}
+    }
 
     @Override
     public void updateSubmissionList(String amrId, List<String> submissoinList) {

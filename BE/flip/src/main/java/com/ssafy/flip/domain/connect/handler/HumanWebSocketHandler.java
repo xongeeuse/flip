@@ -105,17 +105,19 @@ public class HumanWebSocketHandler extends TextWebSocketHandler {
                 node1 = 132;
                 node2 = 208;
                 matchedKey = "C";
-            } else if(requestDTO.body().worldX() - 69.5F < 0){
-                if (lastMatchedKey.equals("D")) {
-                return;
-                }
-                lastMatchedKey = "D";
-                payloadMap.put("cancelledAmrs", new ArrayList<>());
-                payloadMap.put("cutEdge", edgeId);
-                String payload = objectMapper.writeValueAsString(payloadMap);
-                trigger.run(payload);
-                return;
-            } else {
+            }
+//            else if(requestDTO.body().worldX() - 69.5F < 0){
+//                if (lastMatchedKey.equals("D")) {
+//                return;
+//                }
+//                lastMatchedKey = "D";
+//                payloadMap.put("cancelledAmrs", new ArrayList<>());
+//                payloadMap.put("cutEdge", edgeId);
+//                String payload = objectMapper.writeValueAsString(payloadMap);
+//                trigger.run(payload);
+//                return;
+//            }
+            else {
                 return;
             }
 
@@ -186,7 +188,7 @@ public class HumanWebSocketHandler extends TextWebSocketHandler {
         // 20초 후에 비동기 작업 실행
         CompletableFuture.runAsync(() -> {
             try {
-                Thread.sleep(35000); // 35초 대기
+                Thread.sleep(20000); // 20초 대기
                 lineService.repairLine(10L);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
